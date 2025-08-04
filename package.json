@@ -1,0 +1,32 @@
+{
+  "name": "silent-watch",
+  "version": "0.1.0",
+  "description": "Universal client-side silent failure detector with resilience and safety.",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/types/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "rollup -c",
+    "prepare": "npm run build"
+  },
+  "keywords": ["monitoring", "silent-failure", "observability", "frontend"],
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^24.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "rollup": "^3.0.0",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.0.0"
+  }
+}
