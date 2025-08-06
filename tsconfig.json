@@ -4,7 +4,7 @@
     "module": "ESNext",
     "declaration": true,
     "declarationDir": "dist/types",
-    "outDir": "dist/esm",
+    "outDir": "dist",
     "moduleResolution": "Node",
     "lib": ["DOM", "ES2020"],
     "strict": true,
