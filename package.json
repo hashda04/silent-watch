@@ -6,11 +6,14 @@
   "unpkg": "dist/watcher.umd.js",
   "types": "dist/types/core/watcher.d.ts",
   "exports": {
-    "import": "./dist/watcher.esm.js",
-    "require": "./dist/watcher.cjs.js"
+    ".": {
+      "import": "./dist/watcher.esm.js",
+      "require": "./dist/watcher.cjs.js"
+    }
   },
   "scripts": {
-    "build": "rollup -c"
+    "build": "tsup src/core/watcher.ts --format esm --dts --out-dir dist",
+  "build:rollup": "rollup -c"
   },
   "files": [
     "dist"
@@ -27,6 +30,7 @@
     "@rollup/plugin-typescript": "^11.1.6",
     "rollup": "^2.79.2",
     "rollup-plugin-terser": "^7.0.2",
+    "tsup": "^8.5.0",
     "typescript": "^5.0.0"
   }
 }

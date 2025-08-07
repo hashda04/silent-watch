@@ -1,3 +1,5 @@
+// src/core/watcher.ts
+
 export interface SilentWatchConfig {
   workflows?: string[];
   debug?: boolean;
@@ -37,26 +39,36 @@ export class SilentWatch {
     this.observer.observe(document.body, config);
   }
 
+  public start(): void {
+    this.init();
+  }
+
   public stop(): void {
     this.observer?.disconnect();
     if (this.config.debug) {
       console.log('[SilentWatch] Stopped observing.');
     }
   }
+
+  public log(message: any): void {
+    if (this.config.debug) {
+      console.log('[SilentWatch]', message);
+    }
+  }
 }
 
+// Utility functions
 export function initSilentWatch(config?: SilentWatchConfig): SilentWatch {
   const instance = new SilentWatch(config);
   instance.init();
   return instance;
 }
 
-// ✅ Optional utility
 export function createSilentWatch(config?: SilentWatchConfig): SilentWatch {
   return new SilentWatch(config);
 }
 
-// UMD global (for <script> usage)
+// For use in <script> tags in plain HTML
 if (typeof window !== 'undefined') {
   (window as any).SilentWatch = {
     init: initSilentWatch,
