@@ -3,7 +3,7 @@
 export interface SilentWatchConfig {
   workflows?: string[];
   debug?: boolean;
-  onDetect?: (failureInfo: any) => void;
+  backendUrl?: string; // NEW
 }
 
 export class SilentWatch {
@@ -14,6 +14,7 @@ export class SilentWatch {
     this.config = {
       workflows: ['login', 'contact', 'checkout'],
       debug: false,
+      backendUrl: '', // NEW
       ...config,
     };
   }
@@ -33,10 +34,37 @@ export class SilentWatch {
         if (this.config.debug) {
           console.log('[SilentWatch] DOM mutation observed:', mutation);
         }
+
+        // ✅ Log to backend if URL is set
+        if (this.config.backendUrl) {
+          this.sendToBackend({
+            type: 'dom_mutation',
+            detail: mutation,
+            timestamp: new Date().toISOString(),
+          });
+        }
       });
     });
 
     this.observer.observe(document.body, config);
+  }
+
+  private async sendToBackend(payload: any) {
+    try {
+      await fetch(this.config.backendUrl!, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: payload }),
+      });
+
+      if (this.config.debug) {
+        console.log('[SilentWatch] Log sent to backend:', payload);
+      }
+    } catch (err) {
+      if (this.config.debug) {
+        console.warn('[SilentWatch] Failed to send log to backend:', err);
+      }
+    }
   }
 
   public start(): void {
@@ -57,7 +85,6 @@ export class SilentWatch {
   }
 }
 
-// Utility functions
 export function initSilentWatch(config?: SilentWatchConfig): SilentWatch {
   const instance = new SilentWatch(config);
   instance.init();
@@ -68,7 +95,6 @@ export function createSilentWatch(config?: SilentWatchConfig): SilentWatch {
   return new SilentWatch(config);
 }
 
-// For use in <script> tags in plain HTML
 if (typeof window !== 'undefined') {
   (window as any).SilentWatch = {
     init: initSilentWatch,
