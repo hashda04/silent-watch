@@ -14,7 +14,7 @@ export class SilentWatch {
     this.config = {
       workflows: ['login', 'contact', 'checkout'],
       debug: false,
-      backendUrl: '', // NEW
+      backendUrl: 'http://localhost:4000', // NEW
       ...config,
     };
   }
