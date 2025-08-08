@@ -1,40 +1,37 @@
+// backend/server.js
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const cors = require('cors');
-
 const app = express();
 const PORT = 4000;
 
-// Middleware
-app.use(cors());
+const LOG_FILE = path.join(__dirname, 'silentwatch-logs.json');
+
 app.use(express.json());
 
-// ✅ Root route for testing
+// ✅ Accept logs from SilentWatch
+app.post('/', (req, res) => {
+  const logEntry = {
+    time: new Date().toISOString(),
+    ...req.body,
+  };
+
+  // Append log to file
+  fs.appendFile(LOG_FILE, JSON.stringify(logEntry) + '\n', (err) => {
+    if (err) {
+      console.error('❌ Failed to write log:', err);
+      return res.status(500).send('Failed to write log');
+    }
+    console.log('✅ Log received and saved.');
+    res.send('Logged');
+  });
+});
+
+// 🟢 Health check
 app.get('/', (req, res) => {
   res.send('SilentWatch backend is running');
 });
 
-// ✅ SilentWatch log endpoint
-app.post('/logs', (req, res) => {
-  const logData = req.body;
-  const logPath = path.join(__dirname, 'logs', 'silentwatch.jsonl');
-
-  const line = JSON.stringify({
-    ...logData,
-    received_at: new Date().toISOString(),
-  }) + '\n';
-
-  fs.appendFile(logPath, line, (err) => {
-    if (err) {
-      console.error('Failed to write log:', err);
-      return res.status(500).json({ status: 'error' });
-    }
-    res.json({ status: 'ok' });
-  });
-});
-
-// Start server
 app.listen(PORT, () => {
-  console.log(`✅ SilentWatch backend running at http://localhost:${PORT}`);
+  console.log(`🟢 SilentWatch backend running at http://localhost:${PORT}`);
 });
