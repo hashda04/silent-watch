@@ -1,103 +1,66 @@
 // src/core/watcher.ts
-
-export interface SilentWatchConfig {
-  workflows?: string[];
-  debug?: boolean;
-  backendUrl?: string; // NEW
-}
-
 export class SilentWatch {
-  private config: SilentWatchConfig;
-  private observer: MutationObserver | null = null;
+  private config: { backendUrl?: string; debug?: boolean };
 
-  constructor(config: SilentWatchConfig = {}) {
-    this.config = {
-      workflows: ['login', 'contact', 'checkout'],
-      debug: false,
-      backendUrl: 'http://localhost:4000', // NEW
-      ...config,
-    };
+  constructor(config: { backendUrl?: string; debug?: boolean }) {
+    this.config = config;
   }
 
-  public init(): void {
+  private sendLog(event: any) {
     if (this.config.debug) {
-      console.log('[SilentWatch] Initializing with config:', this.config);
+      console.log("[SilentWatch Debug] Sending log:", event);
     }
-
-    this.observeDOM();
+    if (this.config.backendUrl) {
+      fetch(this.config.backendUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event }),
+      }).catch((err) => console.error("[SilentWatch] Failed to send log:", err));
+    }
   }
 
-  private observeDOM(): void {
-    const config = { childList: true, subtree: true };
-    this.observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (this.config.debug) {
-          console.log('[SilentWatch] DOM mutation observed:', mutation);
-        }
+  public start() {
+    // Startup log
+    this.sendLog({ type: "startup", message: "SilentWatch started from package" });
 
-        // ✅ Log to backend if URL is set
-        if (this.config.backendUrl) {
-          this.sendToBackend({
-            type: 'dom_mutation',
-            detail: mutation,
-            timestamp: new Date().toISOString(),
-          });
-        }
-      });
+    // Log all clicks
+    document.addEventListener("click", (e) => {
+      const target = e.target as HTMLElement;
+      const info = {
+        type: "click",
+        tag: target.tagName,
+        text: target.innerText?.trim() || null,
+        id: target.id || null,
+        className: target.className || null,
+        timestamp: new Date().toISOString(),
+      };
+      this.sendLog(info);
     });
 
-    this.observer.observe(document.body, config);
+    // Log all form submissions
+    document.addEventListener("submit", (e) => {
+      const form = e.target as HTMLFormElement;
+      const info = {
+        type: "form_submit",
+        id: form.id || null,
+        className: form.className || null,
+        timestamp: new Date().toISOString(),
+      };
+      this.sendLog(info);
+    });
+
+    // Optional: detect DOM changes
+    const observer = new MutationObserver(() => {
+      this.sendLog({ type: "dom_mutation", timestamp: new Date().toISOString() });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  private async sendToBackend(payload: any) {
-    try {
-      await fetch(this.config.backendUrl!, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: payload }),
-      });
-
-      if (this.config.debug) {
-        console.log('[SilentWatch] Log sent to backend:', payload);
-      }
-    } catch (err) {
-      if (this.config.debug) {
-        console.warn('[SilentWatch] Failed to send log to backend:', err);
-      }
-    }
-  }
-
-  public start(): void {
-    this.init();
-  }
-
-  public stop(): void {
-    this.observer?.disconnect();
-    if (this.config.debug) {
-      console.log('[SilentWatch] Stopped observing.');
-    }
-  }
-
-  public log(message: any): void {
-    if (this.config.debug) {
-      console.log('[SilentWatch]', message);
-    }
+  public log(message: any) {
+    this.sendLog({ type: "log", payload: message, timestamp: new Date().toISOString() });
   }
 }
 
-export function initSilentWatch(config?: SilentWatchConfig): SilentWatch {
-  const instance = new SilentWatch(config);
-  instance.init();
-  return instance;
-}
-
-export function createSilentWatch(config?: SilentWatchConfig): SilentWatch {
+export function createSilentWatch(config: { backendUrl?: string; debug?: boolean }) {
   return new SilentWatch(config);
-}
-
-if (typeof window !== 'undefined') {
-  (window as any).SilentWatch = {
-    init: initSilentWatch,
-    SilentWatch,
-  };
 }

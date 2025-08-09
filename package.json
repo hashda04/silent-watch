@@ -1,36 +1,34 @@
 {
   "name": "silent-watch",
-  "version": "0.1.0",
-  "main": "dist/watcher.cjs.js",
-  "module": "dist/watcher.esm.js",
-  "unpkg": "dist/watcher.umd.js",
-  "types": "dist/types/core/watcher.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/watcher.esm.js",
-      "require": "./dist/watcher.cjs.js"
-    }
-  },
+  "version": "1.0.0",
+  "description": "A universal, dynamic, and adaptable JavaScript library for detecting silent UI workflow failures and optionally logging them to a backend.",
+  "type": "module",
+  "main": "dist/watcher.js",
+  "types": "dist/watcher.d.ts",
   "scripts": {
-    "build": "tsup src/core/watcher.ts --format esm --dts --out-dir dist",
-  "build:rollup": "rollup -c"
+    "build": "tsup src/core/watcher.ts --format=esm,cjs --dts --out-dir dist",
+    "prepublishOnly": "npm run build"
   },
-  "files": [
-    "dist"
-  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hashda04/silent-watch.git"
+  },
   "keywords": [
-    "silent failures",
-    "ui monitoring",
-    "workflow detection",
-    "frontend tool"
+    "silent-watch",
+    "ui-monitoring",
+    "frontend-error-tracking",
+    "silent-failure-detection",
+    "workflow-tracking",
+    "npm-package"
   ],
+  "author": "Hashida Sherin",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hashda04/silent-watch/issues"
+  },
+  "homepage": "https://github.com/hashda04/silent-watch#readme",
   "devDependencies": {
-    "@rollup/plugin-node-resolve": "^16.0.1",
-    "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "^11.1.6",
-    "rollup": "^2.79.2",
-    "rollup-plugin-terser": "^7.0.2",
     "tsup": "^8.5.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.6.3"
   }
 }

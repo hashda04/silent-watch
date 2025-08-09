@@ -1,2 +1,12 @@
 node_modules/
 dist/
+# Ignore package-lock.json in backend folder
+/backend/package-lock.json
+
+# Ignore package.json in backend folder
+/backend/package.json
+
+# Ignore logs folder inside backend
+/backend/logs/
+# Ignore dist folder inside backend
+/backend/dist/
