@@ -10,3 +10,4 @@ dist/
 /backend/logs/
 # Ignore dist folder inside backend
 /backend/dist/
+backend/logs/silentwatch.jsonl
