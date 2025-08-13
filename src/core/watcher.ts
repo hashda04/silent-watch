@@ -1,4 +1,3 @@
-// src/core/watcher.ts
 export interface SilentWatchConfig {
   backendUrl?: string;
   debug?: boolean;
@@ -30,9 +29,6 @@ export class SilentWatch {
     }
   }
 
-  /**
-   * Patches fetch and XMLHttpRequest to detect if a network call was made
-   */
   private patchNetworkCalls() {
     const self = this;
 
@@ -43,32 +39,45 @@ export class SilentWatch {
         this: typeof window,
         ...args: Parameters<typeof originalFetch>
       ): ReturnType<typeof originalFetch> {
-        self.debugLog("Network call detected: fetch");
-        self.networkCallDetected = true;
-        return originalFetch.apply(this, args);
+        const url = args[0] instanceof Request ? args[0].url : String(args[0]);
+        if (self.config.backendUrl && url.includes(self.config.backendUrl)) {
+          return originalFetch.apply(this, args); // ignore own logs
+        }
+        return originalFetch.apply(this, args).then((response) => {
+          if (response.ok) {
+            self.debugLog("Network call detected (success): fetch", url);
+            self.networkCallDetected = true;
+          } else {
+            self.debugLog("Ignored network error:", response.status, url);
+          }
+          return response;
+        }).catch((err) => {
+          self.debugLog("Fetch error ignored:", err);
+          throw err; // preserve original behavior
+        });
       };
     }
 
-    // Patch XMLHttpRequest.open
-    try {
-      const originalXhrOpen = XMLHttpRequest.prototype.open;
-      if (typeof originalXhrOpen === "function") {
-        XMLHttpRequest.prototype.open = function (
-          this: XMLHttpRequest,
-          ...args: Parameters<typeof originalXhrOpen>
-        ): ReturnType<typeof originalXhrOpen> {
-          this.addEventListener("readystatechange", function () {
-            if (this.readyState === 1) {
-              self.debugLog("Network call detected: XHR open");
-              self.networkCallDetected = true;
-            }
-          });
-          return originalXhrOpen.apply(this, args);
-        } as typeof originalXhrOpen;
+    // Patch XMLHttpRequest
+    const originalXhrOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (
+      this: XMLHttpRequest,
+      ...args: Parameters<typeof originalXhrOpen>
+    ): ReturnType<typeof originalXhrOpen> {
+      const url = String(args[1]);
+      if (self.config.backendUrl && url.includes(self.config.backendUrl)) {
+        return originalXhrOpen.apply(this, args); // ignore own logs
       }
-    } catch (err) {
-      console.warn("[SilentWatch] Unable to patch XMLHttpRequest.open:", err);
-    }
+      this.addEventListener("load", function () {
+        if (this.status >= 200 && this.status < 300) {
+          self.debugLog("Network call detected (success): XHR", url);
+          self.networkCallDetected = true;
+        } else {
+          self.debugLog("Ignored XHR error:", this.status, url);
+        }
+      });
+      return originalXhrOpen.apply(this, args);
+    } as typeof originalXhrOpen;
   }
 
   private sendLog(event: any) {
@@ -86,7 +95,6 @@ export class SilentWatch {
 
   private processEvent(userEvent: UserEvent) {
     if (!this.networkCallDetected) {
-      // No backend/network call after event => possible silent failure
       this.sendLog({ ...userEvent.eventInfo, silentFailure: true });
     } else {
       this.debugLog(
@@ -94,7 +102,6 @@ export class SilentWatch {
         userEvent.eventInfo
       );
     }
-    // Reset for next event
     this.networkCallDetected = false;
   }
 
@@ -113,7 +120,6 @@ export class SilentWatch {
       const timestamp = Date.now();
       self.networkCallDetected = false;
 
-      // Clear pending timers
       if (self.pendingEvents.length > 0) {
         self.pendingEvents.forEach((e) => {
           if (e.timerId) clearTimeout(e.timerId);
@@ -131,21 +137,17 @@ export class SilentWatch {
       self.pendingEvents.push({ eventInfo, timestamp, timerId });
     };
 
-    /**
-     * Monitor clicks only on actionable elements (button, link, etc.)
-     */
+    // Monitor actionable clicks
     document.addEventListener("click", (e) => {
       const target = e.target as HTMLElement;
       const tag = target.tagName.toLowerCase();
 
-      // Track only buttons and links
       const actionableTags = ["button", "a"];
       if (!actionableTags.includes(tag)) {
         self.debugLog("Ignored click on non-actionable element:", tag);
         return;
       }
 
-      // Skip disabled elements
       if ((target as HTMLButtonElement).disabled) {
         self.debugLog("Click on disabled element — marking as silent failure");
       }
@@ -163,9 +165,7 @@ export class SilentWatch {
       queueEvent(eventInfo);
     });
 
-    /**
-     * Monitor form submissions
-     */
+    // Monitor form submissions
     document.addEventListener("submit", (e) => {
       const form = e.target as HTMLFormElement;
       const eventInfo = {
