@@ -3,10 +3,17 @@
   "version": "1.0.0",
   "description": "A universal, dynamic, and adaptable JavaScript library for detecting silent UI workflow failures and optionally logging them to a backend.",
   "type": "module",
-  "main": "dist/watcher.js",
-  "types": "dist/watcher.d.ts",
+  "main": "dist/watcher.cjs",          
+  "module": "dist/watcher.js",        
+  "types": "dist/watcher.d.ts",       
+  "exports": {
+    ".": {
+      "import": "./dist/watcher.js",  
+      "require": "./dist/watcher.cjs" 
+    }
+  },
   "scripts": {
-    "build": "tsup src/core/watcher.ts --format=esm,cjs --dts --out-dir dist",
+    "build": "tsup src/core/watcher.ts --format esm,cjs --dts --out-dir dist",
     "prepublishOnly": "npm run build"
   },
   "repository": {
