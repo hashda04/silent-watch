@@ -12,14 +12,18 @@ interface UserEvent {
 
 export class SilentWatch {
   private config: SilentWatchConfig;
-  private networkCallDetected = false;
   private pendingEvents: UserEvent[] = [];
+  private networkCallDetected = false;
+  private originalFetch: typeof window.fetch | null = null;
 
   constructor(config: SilentWatchConfig) {
     this.config = {
       silentFailureTimeoutMs: 700,
       ...config,
     };
+
+    // store original fetch once
+    this.originalFetch = window.fetch.bind(window);
     this.patchNetworkCalls();
   }
 
@@ -29,53 +33,56 @@ export class SilentWatch {
     }
   }
 
+  // Called when ANY network attempt happens (success, fail, CORS, 404 etc.)
+  private markLatestEventSatisfied(url: string, status: number | string) {
+    this.debugLog("Network call detected:", url, "status:", status);
+    this.networkCallDetected = true;
+  }
+
   private patchNetworkCalls() {
     const self = this;
 
-    // Patch fetch
-    const originalFetch = window.fetch;
-    if (originalFetch) {
+    // --- Patch fetch ---
+    if (this.originalFetch) {
       window.fetch = function (
         this: typeof window,
-        ...args: Parameters<typeof originalFetch>
-      ): ReturnType<typeof originalFetch> {
+        ...args: Parameters<typeof window.fetch>
+      ): ReturnType<typeof window.fetch> {
         const url = args[0] instanceof Request ? args[0].url : String(args[0]);
+
+        // Ignore SilentWatch’s own logs
         if (self.config.backendUrl && url.includes(self.config.backendUrl)) {
-          return originalFetch.apply(this, args); // ignore own logs
+          return self.originalFetch!(...args);
         }
-        return originalFetch.apply(this, args).then((response) => {
-          if (response.ok) {
-            self.debugLog("Network call detected (success): fetch", url);
-            self.networkCallDetected = true;
-          } else {
-            self.debugLog("Ignored network error:", response.status, url);
-          }
-          return response;
-        }).catch((err) => {
-          self.debugLog("Fetch error ignored:", err);
-          throw err; // preserve original behavior
-        });
+
+        return self.originalFetch!(...args)
+          .then((response) => {
+            self.markLatestEventSatisfied(url, response.status);
+            return response;
+          })
+          .catch((err) => {
+            self.markLatestEventSatisfied(url, "FETCH_ERROR");
+            throw err;
+          });
       };
     }
 
-    // Patch XMLHttpRequest
+    // --- Patch XMLHttpRequest ---
     const originalXhrOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (
       this: XMLHttpRequest,
       ...args: Parameters<typeof originalXhrOpen>
     ): ReturnType<typeof originalXhrOpen> {
       const url = String(args[1]);
+
       if (self.config.backendUrl && url.includes(self.config.backendUrl)) {
-        return originalXhrOpen.apply(this, args); // ignore own logs
+        return originalXhrOpen.apply(this, args);
       }
-      this.addEventListener("load", function () {
-        if (this.status >= 200 && this.status < 300) {
-          self.debugLog("Network call detected (success): XHR", url);
-          self.networkCallDetected = true;
-        } else {
-          self.debugLog("Ignored XHR error:", this.status, url);
-        }
+
+      this.addEventListener("loadend", function () {
+        self.markLatestEventSatisfied(url, this.status);
       });
+
       return originalXhrOpen.apply(this, args);
     } as typeof originalXhrOpen;
   }
@@ -98,7 +105,7 @@ export class SilentWatch {
       this.sendLog({ ...userEvent.eventInfo, silentFailure: true });
     } else {
       this.debugLog(
-        "Network call detected, skipping silent failure log for:",
+        "Network activity detected, skipping silent failure log for:",
         userEvent.eventInfo
       );
     }
@@ -110,7 +117,7 @@ export class SilentWatch {
 
     this.sendLog({
       type: "startup",
-      message: "SilentWatch started from package",
+      message: "SilentWatch started",
       timestamp: new Date().toLocaleString("en-IN", {
         timeZone: "Asia/Kolkata",
       }),
@@ -120,6 +127,7 @@ export class SilentWatch {
       const timestamp = Date.now();
       self.networkCallDetected = false;
 
+      // clear previous pending events
       if (self.pendingEvents.length > 0) {
         self.pendingEvents.forEach((e) => {
           if (e.timerId) clearTimeout(e.timerId);
@@ -149,7 +157,7 @@ export class SilentWatch {
       }
 
       if ((target as HTMLButtonElement).disabled) {
-        self.debugLog("Click on disabled element — marking as silent failure");
+        self.debugLog("Click on disabled element — may be a silent failure");
       }
 
       const eventInfo = {
@@ -158,7 +166,9 @@ export class SilentWatch {
         text: target.innerText?.trim() || null,
         id: target.id || null,
         className: target.className || null,
-        timestamp: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+        timestamp: new Date().toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+        }),
       };
 
       self.debugLog("Actionable click detected:", eventInfo);
@@ -172,7 +182,9 @@ export class SilentWatch {
         type: "form_submit",
         id: form.id || null,
         className: form.className || null,
-        timestamp: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+        timestamp: new Date().toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+        }),
       };
 
       self.debugLog("Form submit detected:", eventInfo);
@@ -184,7 +196,9 @@ export class SilentWatch {
     this.sendLog({
       type: "log",
       payload: message,
-      timestamp: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+      timestamp: new Date().toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+      }),
     });
   }
 }
